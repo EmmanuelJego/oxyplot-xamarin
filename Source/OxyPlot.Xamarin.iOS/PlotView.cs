@@ -11,14 +11,23 @@ namespace OxyPlot.Xamarin.iOS
 {
     using Foundation;
     using OxyPlot;
+    using System;
     using UIKit;
 
     /// <summary>
-    /// Provides a view that can show a <see cref="PlotModel" />. 
+    /// Provides a view that can show a <see cref="PlotModel" />.
     /// </summary>
     [Register("PlotView")]
     public class PlotView : UIView, IPlotView
     {
+        /// <summary>
+        /// The pan zoom gesture recognizer
+        /// </summary>
+        private readonly PanZoomGestureRecognizer panZoomGesture = new PanZoomGestureRecognizer();
+        /// <summary>
+        /// The tap gesture recognizer
+        /// </summary>
+        private readonly UITapGestureRecognizer tapGesture = new UITapGestureRecognizer();
         /// <summary>
         /// The current plot model.
         /// </summary>
@@ -30,73 +39,7 @@ namespace OxyPlot.Xamarin.iOS
         private IPlotController defaultController;
 
         /// <summary>
-        /// The pan zoom gesture recognizer
-        /// </summary>
-        private readonly PanZoomGestureRecognizer panZoomGesture = new PanZoomGestureRecognizer();
-
-        /// <summary>
-        /// The tap gesture recognizer
-        /// </summary>
-        private readonly UITapGestureRecognizer tapGesture = new UITapGestureRecognizer();
-               
-        /// <summary>
-        /// Initializes a new instance of the <see cref="OxyPlot.Xamarin.iOS.PlotView"/> class.
-        /// </summary>
-        public PlotView()
-        {
-            this.Initialize ();
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="OxyPlot.Xamarin.iOS.PlotView"/> class.
-        /// </summary>
-        /// <param name="frame">The initial frame.</param>
-        public PlotView(CoreGraphics.CGRect frame) : base(frame)
-        {
-            this.Initialize ();
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="OxyPlot.Xamarin.iOS.PlotView"/> class.
-        /// </summary>
-        /// <param name="coder">Coder.</param>
-        [Export ("initWithCoder:")]
-        public PlotView(NSCoder coder) : base (coder)
-        {
-            this.Initialize ();
-        }
-
-        /// <summary>
-        /// Uses the new layout.
-        /// </summary>
-        /// <returns><c>true</c>, if new layout was used, <c>false</c> otherwise.</returns>
-        [Export ("requiresConstraintBasedLayout")]
-        private bool UseNewLayout ()
-        {
-            return true;
-        }
-
-        /// <summary>
-        /// Initialize the view.
-        /// </summary>
-        private void Initialize() {
-            this.UserInteractionEnabled = true;
-            this.MultipleTouchEnabled = true;
-            this.BackgroundColor = UIColor.White;
-            this.KeepAspectRatioWhenPinching = true;
-
-			this.panZoomGesture.AddTarget(this.HandlePanZoomGesture);
-			this.tapGesture.AddTarget(this.HandleTapGesture);
-			//Prevent panZoom and tap gestures from being recognized simultaneously
-			this.tapGesture.RequireGestureRecognizerToFail(this.panZoomGesture);
-
-            // Do not intercept touches on overlapping views
-            this.panZoomGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
-			this.tapGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
-        }
-
-        /// <summary>
-        /// Gets or sets the <see cref="PlotModel"/> to show in the view. 
+        /// Gets or sets the <see cref="PlotModel"/> to show in the view.
         /// </summary>
         /// <value>The <see cref="PlotModel"/>.</value>
         public PlotModel Model
@@ -229,6 +172,87 @@ namespace OxyPlot.Xamarin.iOS
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="OxyPlot.Xamarin.iOS.PlotView"/> class.
+        /// </summary>
+        public PlotView()
+        {
+            this.Initialize();
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OxyPlot.Xamarin.iOS.PlotView"/> class.
+        /// </summary>
+        /// <param name="frame">The initial frame.</param>
+        public PlotView(CoreGraphics.CGRect frame) : base(frame)
+        {
+            this.Initialize();
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OxyPlot.Xamarin.iOS.PlotView"/> class.
+        /// </summary>
+        /// <param name="coder">Coder.</param>
+        [Export("initWithCoder:")]
+        public PlotView(NSCoder coder) : base(coder)
+        {
+            this.Initialize();
+        }
+
+        /// <summary>
+        /// Uses the new layout.
+        /// </summary>
+        /// <returns><c>true</c>, if new layout was used, <c>false</c> otherwise.</returns>
+        [Export("requiresConstraintBasedLayout")]
+        private bool UseNewLayout()
+        {
+            return true;
+        }
+
+        /// <summary>
+        /// Initialize the view.
+        /// </summary>
+        private void Initialize()
+        {
+            this.UserInteractionEnabled = true;
+            this.MultipleTouchEnabled = true;
+            this.BackgroundColor = UIColor.White;
+            this.KeepAspectRatioWhenPinching = true;
+
+            this.panZoomGesture.AddTarget(this.HandlePanZoomGesture);
+            this.tapGesture.AddTarget(this.HandleTapGesture);
+            //Prevent panZoom and tap gestures from being recognized simultaneously
+            this.tapGesture.RequireGestureRecognizerToFail(this.panZoomGesture);
+
+            // Do not intercept touches on overlapping views
+            this.panZoomGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
+            this.tapGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
+        }
+
+        private void HandlePanZoomGesture()
+        {
+            switch (this.panZoomGesture.State)
+            {
+                case UIGestureRecognizerState.Began:
+                    this.ActualController.HandleTouchStarted(this, this.panZoomGesture.TouchEventArgs);
+                    break;
+                case UIGestureRecognizerState.Changed:
+                    this.ActualController.HandleTouchDelta(this, this.panZoomGesture.TouchEventArgs);
+                    break;
+                case UIGestureRecognizerState.Ended:
+                case UIGestureRecognizerState.Cancelled:
+                    this.ActualController.HandleTouchCompleted(this, this.panZoomGesture.TouchEventArgs);
+                    break;
+            }
+        }
+
+        private void HandleTapGesture()
+        {
+            var location = this.tapGesture.LocationInView(this);
+            this.ActualController.HandleTouchStarted(this, location.ToTouchEventArgs());
+            this.ActualController.HandleTouchCompleted(this, location.ToTouchEventArgs());
+        }
+
+        /// <summary>
         /// Hides the tracker.
         /// </summary>
         public void HideTracker()
@@ -304,13 +328,13 @@ namespace OxyPlot.Xamarin.iOS
             var actualModel = (IPlotModel)this.model;
             if (actualModel != null)
             {
-                var context = UIGraphics.GetCurrentContext ();
+                var context = UIGraphics.GetCurrentContext();
                 using (var renderer = new CoreGraphicsRenderContext(context))
                 {
                     if (actualModel.Background.IsVisible())
                     {
-                        context.SetFillColor (actualModel.Background.ToCGColor ());
-                        context.FillRect (rect);
+                        context.SetFillColor(actualModel.Background.ToCGColor());
+                        context.FillRect(rect);
                     }
 
                     actualModel.Render(renderer, rect.Width, rect.Height);
@@ -332,49 +356,25 @@ namespace OxyPlot.Xamarin.iOS
             }
         }
 
-		/// <summary>
-		/// Used to add/remove the gesture recognizer so that it
-		/// doesn't prevent the PlotView from being garbage-collected.
-		/// </summary>
-		/// <param name="newsuper">New superview</param>
-		public override void WillMoveToSuperview (UIView newsuper)
-		{
-			if (newsuper == null)
-			{
-				this.RemoveGestureRecognizer (this.panZoomGesture);
-				this.RemoveGestureRecognizer (this.tapGesture);
-			}
-			else if (this.Superview == null)
-			{
-				this.AddGestureRecognizer (this.panZoomGesture);
-				this.AddGestureRecognizer (this.tapGesture);
-			}
-
-			base.WillMoveToSuperview (newsuper);
-		}
-
-        private void HandlePanZoomGesture()
+        /// <summary>
+        /// Used to add/remove the gesture recognizer so that it
+        /// doesn't prevent the PlotView from being garbage-collected.
+        /// </summary>
+        /// <param name="newsuper">New superview</param>
+        public override void WillMoveToSuperview(UIView newsuper)
         {
-            switch (this.panZoomGesture.State)
+            if (newsuper == null)
             {
-                case UIGestureRecognizerState.Began:
-                    this.ActualController.HandleTouchStarted(this, this.panZoomGesture.TouchEventArgs);
-                    break;
-                case UIGestureRecognizerState.Changed:
-                    this.ActualController.HandleTouchDelta(this, this.panZoomGesture.TouchEventArgs);
-                    break;
-                case UIGestureRecognizerState.Ended:
-                case UIGestureRecognizerState.Cancelled:
-                    this.ActualController.HandleTouchCompleted(this, this.panZoomGesture.TouchEventArgs);
-                    break;
+                this.RemoveGestureRecognizer(this.panZoomGesture);
+                this.RemoveGestureRecognizer(this.tapGesture);
             }
-        }
+            else if (this.Superview == null)
+            {
+                this.AddGestureRecognizer(this.panZoomGesture);
+                this.AddGestureRecognizer(this.tapGesture);
+            }
 
-		private void HandleTapGesture()
-		{
-			var location = this.tapGesture.LocationInView(this);
-            this.ActualController.HandleTouchStarted(this, location.ToTouchEventArgs());
-            this.ActualController.HandleTouchCompleted(this, location.ToTouchEventArgs());
-		}
+            base.WillMoveToSuperview(newsuper);
+        }
     }
 }

@@ -8,6 +8,7 @@
 // --------------------------------------------------------------------------------------------------------------------
 
 #if __UNIFIED__
+
 namespace OxyPlot.Xamarin.iOS
 #else
 namespace OxyPlot.MonoTouch
@@ -18,8 +19,10 @@ namespace OxyPlot.MonoTouch
     using System.Linq;
 
 #if __UNIFIED__
+
     using global::Foundation;
     using global::UIKit;
+
 #else
     using global::MonoTouch.Foundation;
     using global::MonoTouch.UIKit;
@@ -42,18 +45,6 @@ namespace OxyPlot.MonoTouch
         private ScreenVector startingDistance = default(ScreenVector);
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PanZoomGestureRecognizer"/> class.
-        /// </summary>
-        /// <remarks>
-        /// To add methods that will be invoked upon recognition, you can use the AddTarget method.
-        /// </remarks>
-        public PanZoomGestureRecognizer()
-        {
-            this.ZoomThreshold = 20d;
-            this.AllowPinchPastZero = true;
-        }
-
-        /// <summary>
         /// Gets or sets a value indicating whether this <see cref="PanZoomGestureRecognizer"/> keeps the aspect ratio when pinching.
         /// </summary>
         /// <value><c>true</c> if keep aspect ratio when pinching; otherwise, <c>false</c>.</value>
@@ -66,7 +57,7 @@ namespace OxyPlot.MonoTouch
         public double ZoomThreshold { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether a zoom-out gesture can turn into a zoom-in gesture if the fingers cross. 
+        /// Gets or sets a value indicating whether a zoom-out gesture can turn into a zoom-in gesture if the fingers cross.
         /// If <c>true</c>, and <see cref="KeepAspectRatioWhenPinching" /> is <c>false</c>, a zoom-out gesture
         /// can turn into a zoom-in gesture if the fingers cross. Setting to <c>false</c> will
         /// instead simply stop the zoom at that point.
@@ -80,6 +71,83 @@ namespace OxyPlot.MonoTouch
         /// The touch event arguments.
         /// </value>
         public OxyTouchEventArgs TouchEventArgs { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PanZoomGestureRecognizer"/> class.
+        /// </summary>
+        /// <remarks>
+        /// To add methods that will be invoked upon recognition, you can use the AddTarget method.
+        /// </remarks>
+        public PanZoomGestureRecognizer()
+        {
+            this.ZoomThreshold = 20d;
+            this.AllowPinchPastZero = true;
+        }
+
+        /// <summary>
+        /// Determines whether the direction has changed.
+        /// </summary>
+        /// <param name="current">The current value.</param>
+        /// <param name="original">The original value.</param>
+        /// <returns><c>true</c> if the direction changed.</returns>
+        private static bool DidDirectionChange(double current, double original)
+        {
+            return (current >= 0) != (original >= 0);
+        }
+
+        /// <summary>
+        /// Calculates the scale factor.
+        /// </summary>
+        /// <param name="distance">The distance.</param>
+        /// <param name="previousDistance">The previous distance.</param>
+        /// <returns>The scale factor.</returns>
+        private double CalculateScaleFactor(double distance, double previousDistance)
+        {
+            return Math.Abs(previousDistance) > this.ZoomThreshold
+                && Math.Abs(distance) > this.ZoomThreshold
+                ? Math.Abs(distance / previousDistance)
+                : 1;
+        }
+
+        /// <summary>
+        /// Calculates the starting distance.
+        /// </summary>
+        private void CalculateStartingDistance()
+        {
+            if (this.activeTouches.Count < 2)
+            {
+                this.startingDistance = default(ScreenVector);
+                return;
+            }
+
+            var loc1 = this.activeTouches.ElementAt(0).LocationInView(this.View).ToScreenPoint();
+            var loc2 = this.activeTouches.ElementAt(1).LocationInView(this.View).ToScreenPoint();
+
+            this.startingDistance = loc1 - loc2;
+        }
+
+        /// <summary>
+        /// Applies the "prevent fingers crossing" to the specified vector.
+        /// </summary>
+        /// <param name="currentDistance">The current distance.</param>
+        /// <returns>A vector where the "prevent fingers crossing" is applied.</returns>
+        private ScreenVector PreventCross(ScreenVector currentDistance)
+        {
+            var x = currentDistance.X;
+            var y = currentDistance.Y;
+
+            if (DidDirectionChange(x, this.startingDistance.X))
+            {
+                x = 0;
+            }
+
+            if (DidDirectionChange(y, this.startingDistance.Y))
+            {
+                y = 0;
+            }
+
+            return new ScreenVector(x, y);
+        }
 
         /// <summary>
         /// Called when a touch gesture begins.
@@ -108,6 +176,8 @@ namespace OxyPlot.MonoTouch
                 // with the first touch used for panning.
                 this.TouchEventArgs = this.activeTouches.First().ToTouchEventArgs(this.View);
             }
+
+            //this.activeTouches.FirstOrDefault()?.View.
 
             this.CalculateStartingDistance();
         }
@@ -194,14 +264,14 @@ namespace OxyPlot.MonoTouch
                 {
                     this.TouchEventArgs = firstTouch.ToTouchEventArgs(this.View);
 
-					if (this.State == UIGestureRecognizerState.Possible)
-					{
-						this.State = UIGestureRecognizerState.Failed;
-					}
-					else
-					{
-						this.State = UIGestureRecognizerState.Ended;
-					}
+                    if (this.State == UIGestureRecognizerState.Possible)
+                    {
+                        this.State = UIGestureRecognizerState.Failed;
+                    }
+                    else
+                    {
+                        this.State = UIGestureRecognizerState.Ended;
+                    }
                 }
             }
         }
@@ -215,103 +285,40 @@ namespace OxyPlot.MonoTouch
         {
             base.TouchesCancelled(touches, evt);
 
-			// I'm not sure if it's actually possible for one touch to be canceled without
-			// both being canceled, but just to be safe let's stay consistent with TouchesEnded
-			// and handle that scenario.
+            // I'm not sure if it's actually possible for one touch to be canceled without
+            // both being canceled, but just to be safe let's stay consistent with TouchesEnded
+            // and handle that scenario.
 
-			// We already have the only two touches we care about, so ignore the params
-			var secondTouch = this.activeTouches.ElementAtOrDefault(1);
+            // We already have the only two touches we care about, so ignore the params
+            var secondTouch = this.activeTouches.ElementAtOrDefault(1);
 
-			if (secondTouch != null && secondTouch.Phase == UITouchPhase.Cancelled)
-			{
-				this.activeTouches.Remove(secondTouch);
-			}
-
-			var firstTouch = this.activeTouches.FirstOrDefault();
-
-			if (firstTouch != null && firstTouch.Phase == UITouchPhase.Cancelled)
-			{
-				this.activeTouches.Remove(firstTouch);
-
-				if (!this.activeTouches.Any())
-				{
-					this.TouchEventArgs = firstTouch.ToTouchEventArgs(this.View);
-
-					if (this.State == UIGestureRecognizerState.Possible)
-					{
-						this.State = UIGestureRecognizerState.Failed;
-					}
-					else
-					{
-						this.State = UIGestureRecognizerState.Cancelled;
-					}
-				}
-			}
-        }
-
-        /// <summary>
-        /// Determines whether the direction has changed.
-        /// </summary>
-        /// <param name="current">The current value.</param>
-        /// <param name="original">The original value.</param>
-        /// <returns><c>true</c> if the direction changed.</returns>
-        private static bool DidDirectionChange(double current, double original)
-        {
-            return (current >= 0) != (original >= 0);
-        }
-
-        /// <summary>
-        /// Calculates the scale factor.
-        /// </summary>
-        /// <param name="distance">The distance.</param>
-        /// <param name="previousDistance">The previous distance.</param>
-        /// <returns>The scale factor.</returns>
-        private double CalculateScaleFactor(double distance, double previousDistance)
-        {
-            return Math.Abs(previousDistance) > this.ZoomThreshold
-                && Math.Abs(distance) > this.ZoomThreshold
-                ? Math.Abs(distance / previousDistance)
-                : 1;
-        }
-
-        /// <summary>
-        /// Calculates the starting distance.
-        /// </summary>
-        private void CalculateStartingDistance()
-        {
-            if (this.activeTouches.Count < 2)
+            if (secondTouch != null && secondTouch.Phase == UITouchPhase.Cancelled)
             {
-                this.startingDistance = default(ScreenVector);
-                return;
+                Console.WriteLine("Touch ended 2");
+                this.activeTouches.Remove(secondTouch);
             }
 
-            var loc1 = this.activeTouches.ElementAt(0).LocationInView(this.View).ToScreenPoint();
-            var loc2 = this.activeTouches.ElementAt(1).LocationInView(this.View).ToScreenPoint();
+            var firstTouch = this.activeTouches.FirstOrDefault();
 
-            this.startingDistance = loc1 - loc2;
-        }
-
-        /// <summary>
-        /// Applies the "prevent fingers crossing" to the specified vector.
-        /// </summary>
-        /// <param name="currentDistance">The current distance.</param>
-        /// <returns>A vector where the "prevent fingers crossing" is applied.</returns>
-        private ScreenVector PreventCross(ScreenVector currentDistance)
-        {
-            var x = currentDistance.X;
-            var y = currentDistance.Y;
-
-            if (DidDirectionChange(x, this.startingDistance.X))
+            if (firstTouch != null && firstTouch.Phase == UITouchPhase.Cancelled)
             {
-                x = 0;
-            }
+                Console.WriteLine("Touch ended 1");
+                this.activeTouches.Remove(firstTouch);
 
-            if (DidDirectionChange(y, this.startingDistance.Y))
-            {
-                y = 0;
-            }
+                if (!this.activeTouches.Any())
+                {
+                    this.TouchEventArgs = firstTouch.ToTouchEventArgs(this.View);
 
-            return new ScreenVector(x, y);
+                    if (this.State == UIGestureRecognizerState.Possible)
+                    {
+                        this.State = UIGestureRecognizerState.Failed;
+                    }
+                    else
+                    {
+                        this.State = UIGestureRecognizerState.Cancelled;
+                    }
+                }
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ using global::Xamarin.Forms.Platform.iOS;
 
 // Exports the renderer.
 [assembly: ExportRenderer(typeof(PlotView), typeof(PlotViewRenderer))]
+
 namespace OxyPlot.Xamarin.Forms.Platform.iOS
 {
     using System.ComponentModel;
@@ -29,15 +30,6 @@ namespace OxyPlot.Xamarin.Forms.Platform.iOS
         public PlotViewRenderer()
         {
             // Do not delete
-        }
-
-        /// <summary>
-        /// Initializes the renderer.
-        /// </summary>
-        /// <remarks>This method must be called before a <see cref="T:PlotView" /> is used.</remarks>
-        public static new void Init()
-        {
-            OxyPlot.Xamarin.Forms.PlotView.IsRendererInitialized = true;
         }
 
         /// <summary>
@@ -90,9 +82,19 @@ namespace OxyPlot.Xamarin.Forms.Platform.iOS
                 this.Control.BackgroundColor = this.Element.BackgroundColor.ToOxyColor().ToUIColor();
             }
 
-            if (e.PropertyName == VisualElement.IsVisibleProperty.PropertyName) {
-                this.Control.InvalidatePlot (false);
+            if (e.PropertyName == VisualElement.IsVisibleProperty.PropertyName)
+            {
+                this.Control.InvalidatePlot(false);
             }
+        }
+
+        /// <summary>
+        /// Initializes the renderer.
+        /// </summary>
+        /// <remarks>This method must be called before a <see cref="T:PlotView" /> is used.</remarks>
+        public static new void Init()
+        {
+            OxyPlot.Xamarin.Forms.PlotView.IsRendererInitialized = true;
         }
     }
 }

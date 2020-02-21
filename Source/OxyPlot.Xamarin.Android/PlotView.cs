@@ -24,84 +24,43 @@ namespace OxyPlot.Xamarin.Android
     public class PlotView : View, IPlotView
     {
         /// <summary>
-        /// The factor that scales from OxyPlot´s device independent pixels (96 dpi) to 
-        /// Android´s current density-independent pixels (dpi).
-        /// </summary>
-        /// <remarks>See <a href="http://developer.android.com/guide/practices/screens_support.html">Supporting multiple screens.</a>.</remarks>
-        public double Scale;
-
-        /// <summary>
         /// The rendering lock object.
         /// </summary>
         private readonly object renderingLock = new object();
-
         /// <summary>
         /// The invalidation lock object.
         /// </summary>
         private readonly object invalidateLock = new object();
-
         /// <summary>
         /// The touch points of the previous touch event.
         /// </summary>
         private ScreenPoint[] previousTouchPoints;
-
         /// <summary>
         /// The current model.
         /// </summary>
         private PlotModel model;
-
         /// <summary>
         /// The default controller
         /// </summary>
         private IPlotController defaultController;
-
         /// <summary>
         /// The current render context.
         /// </summary>
         private CanvasRenderContext rc;
-
         /// <summary>
         /// The model invalidated flag.
         /// </summary>
         private bool isModelInvalidated;
-
         /// <summary>
         /// The update data flag.
         /// </summary>
         private bool updateDataFlag = true;
-
         /// <summary>
-        /// Initializes a new instance of the <see cref="PlotView" /> class.
+        /// The factor that scales from OxyPlot´s device independent pixels (96 dpi) to
+        /// Android´s current density-independent pixels (dpi).
         /// </summary>
-        /// <param name="context">The context.</param>
-        /// <remarks>Use this constructor when creating the view from code.</remarks>
-        public PlotView(Context context) :
-            base(context)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PlotView" /> class.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        /// <param name="attrs">The attribute set.</param>
-        /// <remarks>This constructor is called when inflating the view from XML.</remarks>
-        public PlotView(Context context, IAttributeSet attrs) :
-            base(context, attrs)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PlotView" /> class.
-        /// </summary>
-        /// <param name="context">The context.</param>
-        /// <param name="attrs">The attribute set.</param>
-        /// <param name="defStyle">The definition style.</param>
-        /// <remarks>This constructor performs inflation from XML and applies a class-specific base style.</remarks>
-        public PlotView(Context context, IAttributeSet attrs, int defStyle) :
-            base(context, attrs, defStyle)
-        {
-        }
+        /// <remarks>See <a href="http://developer.android.com/guide/practices/screens_support.html">Supporting multiple screens.</a>.</remarks>
+        public double Scale;
 
         /// <summary>
         /// Gets or sets the plot model.
@@ -200,6 +159,127 @@ namespace OxyPlot.Xamarin.Android
             get
             {
                 return this.Controller ?? (this.defaultController ?? (this.defaultController = new PlotController()));
+            }
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PlotView" /> class.
+        /// </summary>
+        /// <param name="context">The context.</param>
+        /// <remarks>Use this constructor when creating the view from code.</remarks>
+        public PlotView(Context context) :
+            base(context)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PlotView" /> class.
+        /// </summary>
+        /// <param name="context">The context.</param>
+        /// <param name="attrs">The attribute set.</param>
+        /// <remarks>This constructor is called when inflating the view from XML.</remarks>
+        public PlotView(Context context, IAttributeSet attrs) :
+            base(context, attrs)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PlotView" /> class.
+        /// </summary>
+        /// <param name="context">The context.</param>
+        /// <param name="attrs">The attribute set.</param>
+        /// <param name="defStyle">The definition style.</param>
+        /// <remarks>This constructor performs inflation from XML and applies a class-specific base style.</remarks>
+        public PlotView(Context context, IAttributeSet attrs, int defStyle) :
+            base(context, attrs, defStyle)
+        {
+        }
+
+        /// <summary>
+        /// Handles touch down events.
+        /// </summary>
+        /// <param name="e">The motion event arguments.</param>
+        /// <returns><c>true</c> if the event was handled.</returns>
+        private bool OnTouchDownEvent(MotionEvent e)
+        {
+            var args = e.ToTouchEventArgs(Scale);
+            var handled = this.ActualController.HandleTouchStarted(this, args);
+            this.previousTouchPoints = e.GetTouchPoints(Scale);
+            return handled;
+        }
+
+        /// <summary>
+        /// Handles touch move events.
+        /// </summary>
+        /// <param name="e">The motion event arguments.</param>
+        /// <returns><c>true</c> if the event was handled.</returns>
+        private bool OnTouchMoveEvent(MotionEvent e)
+        {
+            var currentTouchPoints = e.GetTouchPoints(Scale);
+            var args = new OxyTouchEventArgs(currentTouchPoints, this.previousTouchPoints);
+            var handled = this.ActualController.HandleTouchDelta(this, args);
+            this.previousTouchPoints = currentTouchPoints;
+            return handled;
+        }
+
+        /// <summary>
+        /// Handles touch released events.
+        /// </summary>
+        /// <param name="e">The motion event arguments.</param>
+        /// <returns><c>true</c> if the event was handled.</returns>
+        private bool OnTouchUpEvent(MotionEvent e)
+        {
+            return this.ActualController.HandleTouchCompleted(this, e.ToTouchEventArgs(Scale));
+        }
+
+        /// <summary>
+        /// Draws the content of the control.
+        /// </summary>
+        /// <param name="canvas">The canvas to draw on.</param>
+        protected override void OnDraw(Canvas canvas)
+        {
+            base.OnDraw(canvas);
+            var actualModel = this.ActualModel;
+            if (actualModel == null)
+            {
+                return;
+            }
+
+            if (actualModel.Background.IsVisible())
+            {
+                canvas.DrawColor(actualModel.Background.ToColor());
+            }
+            else
+            {
+                // do nothing
+            }
+
+            lock (this.invalidateLock)
+            {
+                if (this.isModelInvalidated)
+                {
+                    ((IPlotModel)actualModel).Update(this.updateDataFlag);
+                    this.updateDataFlag = false;
+                    this.isModelInvalidated = false;
+                }
+            }
+
+            lock (this.renderingLock)
+            {
+                if (this.rc == null)
+                {
+                    var displayMetrics = this.Context.Resources.DisplayMetrics;
+
+                    // The factors for scaling to Android's DPI and SPI units.
+                    // The density independent pixel is equivalent to one physical pixel
+                    // on a 160 dpi screen (baseline density)
+                    this.Scale = displayMetrics.Density;
+                    this.rc = new CanvasRenderContext(Scale, displayMetrics.ScaledDensity);
+                }
+
+                this.rc.SetTarget(canvas);
+
+                ((IPlotModel)actualModel).Render(this.rc, Width / Scale, Height / Scale);
             }
         }
 
@@ -306,94 +386,6 @@ namespace OxyPlot.Xamarin.Android
             }
 
             return handled;
-        }
-
-        /// <summary>
-        /// Draws the content of the control.
-        /// </summary>
-        /// <param name="canvas">The canvas to draw on.</param>
-        protected override void OnDraw(Canvas canvas)
-        {
-            base.OnDraw(canvas);
-            var actualModel = this.ActualModel;
-            if (actualModel == null)
-            {
-                return;
-            }
-
-            if (actualModel.Background.IsVisible())
-            {
-                canvas.DrawColor(actualModel.Background.ToColor());
-            }
-            else
-            {
-                // do nothing
-            }
-
-            lock (this.invalidateLock)
-            {
-                if (this.isModelInvalidated)
-                {
-                    ((IPlotModel)actualModel).Update(this.updateDataFlag);
-                    this.updateDataFlag = false;
-                    this.isModelInvalidated = false;
-                }
-            }
-
-            lock (this.renderingLock)
-            {
-                if (this.rc == null)
-                {
-                    var displayMetrics = this.Context.Resources.DisplayMetrics;
-
-                    // The factors for scaling to Android's DPI and SPI units.
-                    // The density independent pixel is equivalent to one physical pixel 
-                    // on a 160 dpi screen (baseline density)
-                    this.Scale = displayMetrics.Density;
-                    this.rc = new CanvasRenderContext(Scale, displayMetrics.ScaledDensity);
-                }
-
-                this.rc.SetTarget(canvas);
-                
-                ((IPlotModel)actualModel).Render(this.rc, Width / Scale, Height / Scale);
-            }
-        }
-
-        /// <summary>
-        /// Handles touch down events.
-        /// </summary>
-        /// <param name="e">The motion event arguments.</param>
-        /// <returns><c>true</c> if the event was handled.</returns>
-        private bool OnTouchDownEvent(MotionEvent e)
-        {
-            var args = e.ToTouchEventArgs(Scale);
-            var handled = this.ActualController.HandleTouchStarted(this, args);
-            this.previousTouchPoints = e.GetTouchPoints(Scale);
-            return handled;
-        }
-
-        /// <summary>
-        /// Handles touch move events.
-        /// </summary>
-        /// <param name="e">The motion event arguments.</param>
-        /// <returns><c>true</c> if the event was handled.</returns>
-        private bool OnTouchMoveEvent(MotionEvent e)
-        {
-            var currentTouchPoints = e.GetTouchPoints(Scale);
-            var args = new OxyTouchEventArgs(currentTouchPoints, this.previousTouchPoints);
-            var handled = this.ActualController.HandleTouchDelta(this, args);
-            this.previousTouchPoints = currentTouchPoints;
-            return handled;
-        }
-
-        /// <summary>
-        /// Handles touch released events.
-        /// </summary>
-        /// <param name="e">The motion event arguments.</param>
-        /// <returns><c>true</c> if the event was handled.</returns>
-        private bool OnTouchUpEvent(MotionEvent e)
-        {
-            return this.ActualController.HandleTouchCompleted(this, e.ToTouchEventArgs(Scale));
         }
     }
 }

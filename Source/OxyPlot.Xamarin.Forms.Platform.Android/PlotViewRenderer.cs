@@ -15,7 +15,7 @@ namespace OxyPlot.Xamarin.Forms.Platform.Android
     using OxyPlot.Xamarin.Android;
 
     /// <summary>
-    /// Provides a custom <see cref="OxyPlot.Xamarin.Forms.PlotView" /> renderer for Xamarin.Android. 
+    /// Provides a custom <see cref="OxyPlot.Xamarin.Forms.PlotView" /> renderer for Xamarin.Android.
     /// </summary>
     public class PlotViewRenderer : ViewRenderer<Xamarin.Forms.PlotView, PlotView>
     {
@@ -34,13 +34,13 @@ namespace OxyPlot.Xamarin.Forms.Platform.Android
         {
         }
 
-        /// <summary>
-        /// Initializes the renderer.
-        /// </summary>
-        /// <remarks>This method must be called before a <see cref="T:PlotView" /> is used.</remarks>
-        public static void Init()
+        private void DetachModelFromView()
         {
-            OxyPlot.Xamarin.Forms.PlotView.IsRendererInitialized = true;
+            var model = base.Element.Model as OxyPlot.IPlotModel;
+            if (model != null)
+            {
+                model.AttachPlotView(null);
+            }
         }
 
         /// <summary>
@@ -97,14 +97,14 @@ namespace OxyPlot.Xamarin.Forms.Platform.Android
                 this.Control.SetBackgroundColor(this.Element.BackgroundColor.ToAndroid());
             }
         }
- 
-        void DetachModelFromView()
+
+        /// <summary>
+        /// Initializes the renderer.
+        /// </summary>
+        /// <remarks>This method must be called before a <see cref="T:PlotView" /> is used.</remarks>
+        public static void Init()
         {
-            var model = base.Element.Model as OxyPlot.IPlotModel;
-            if (model != null)
-            {
-                model.AttachPlotView(null);
-            }
+            OxyPlot.Xamarin.Forms.PlotView.IsRendererInitialized = true;
         }
     }
 }
