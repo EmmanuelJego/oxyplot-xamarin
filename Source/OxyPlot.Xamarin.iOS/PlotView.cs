@@ -220,7 +220,7 @@ namespace OxyPlot.Xamarin.iOS
         }
 
         /// <summary>
-        /// Initialize the view.
+        /// Initialize the view and its gestures.
         /// </summary>
         private void Initialize()
         {
@@ -257,11 +257,15 @@ namespace OxyPlot.Xamarin.iOS
             this.doubleTapGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
         }
 
+        /// <summary>
+        /// Handles the pan and pinch gestures.
+        /// </summary>
         private void HandlePanZoomGesture()
         {
             var numberOfTouches = this.panZoomGesture.NumberOfTouches;
             if (numberOfTouches == 1)
             {
+                // Pan gesture
                 var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
                 switch (this.panZoomGesture.State)
                 {
@@ -273,6 +277,7 @@ namespace OxyPlot.Xamarin.iOS
             }
             else if (numberOfTouches == 2)
             {
+                // Pinch gesture
                 var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
                 switch (this.panZoomGesture.State)
                 {
@@ -291,6 +296,9 @@ namespace OxyPlot.Xamarin.iOS
             }
         }
 
+        /// <summary>
+        /// Handles the single tap gesture
+        /// </summary>
         private void HandleTapGesture()
         {
             var location = this.tapGesture.LocationInView(this);
@@ -298,6 +306,9 @@ namespace OxyPlot.Xamarin.iOS
             this.ActualController.HandleTouchCompleted(this, location.ToTouchEventArgs());
         }
 
+        /// <summary>
+        /// Handles the double tap gesture
+        /// </summary>
         private void HandleDoubleTapGesture()
         {
             var xAxis = Model?.Axes.OfType<CategoryAxis>().FirstOrDefault();
@@ -305,11 +316,13 @@ namespace OxyPlot.Xamarin.iOS
             {
                 if (_isZoomed)
                 {
+                    // If the view is already zoomed, reset the zoom at its initial scale
                     xAxis.Zoom(_initialScale);
                     _isZoomed = false;
                 }
                 else
                 {
+                    // If the view is at its initial scale, zoom in (2.5 factor)
                     if (_initialScale == -1)
                     {
                         _initialScale = xAxis.Scale;

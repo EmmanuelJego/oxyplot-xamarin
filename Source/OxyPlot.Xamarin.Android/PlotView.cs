@@ -33,6 +33,7 @@ namespace OxyPlot.Xamarin.Android
         /// The invalidation lock object.
         /// </summary>
         private readonly object invalidateLock = new object();
+
         private bool _isZoomed, _isPanning;
         private double _initialScale = -1;
 
@@ -95,9 +96,10 @@ namespace OxyPlot.Xamarin.Android
                         ((IPlotModel)value).AttachPlotView(this);
                         this.model = value;
 
+                        // Initialize gestures only for bar charts
                         if (Model.Series.OfType<ColumnSeries>().Any())
                         {
-                            Initialize();
+                            InitializeGestures();
                         }
                     }
 
@@ -207,28 +209,30 @@ namespace OxyPlot.Xamarin.Android
         {
         }
 
-        private void Initialize()
+        /// <summary>
+        /// Initialize the view gestures
+        /// </summary>
+        private void InitializeGestures()
         {
             _panPinchListener = new PanPinchGestureListener(this.Context.Resources.DisplayMetrics.Density);
             _detector = new GestureDetector(_panPinchListener);
 
-            _panPinchListener.OnPan += _panPinchListener_OnPan;
-            _panPinchListener.OnPinch += _panPinchListener_OnPinch;
+            _panPinchListener.OnPan += HandleOnPan;
+            _panPinchListener.OnPinch += HandleOnPinch;
 
-            _detector.SingleTapConfirmed += _detector_SingleTapConfirmed;
-            _detector.DoubleTap += _detector_DoubleTap;
+            _detector.SingleTapConfirmed += HandleSingleTap;
+            _detector.DoubleTap += HandleDoubleTap;
 
             GenericMotion += HandleGenericMotion;
             Touch += HandleTouch;
         }
 
-        private void _panPinchListener_OnPinch(object sender, PinchEventArgs e)
+        /// <summary>
+        /// Handles the pinch gesture
+        /// </summary>
+        private void HandleOnPinch(object sender, PinchEventArgs e)
         {
-            if (!_isPanning)
-            {
-                this.ActualController.HandleTouchDelta(this, new OxyTouchEventArgs());
-                _isPanning = true;
-            }
+            NotifyTouchDeltaIfNeeded();
 
             var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
             if (_initialScale == -1)
@@ -240,17 +244,40 @@ namespace OxyPlot.Xamarin.Android
             Model?.InvalidatePlot(false);
         }
 
-        private void _panPinchListener_OnPan(object sender, PanEventArgs e)
+        /// <summary>
+        /// Handles the pan gesture
+        /// </summary>
+        private void HandleOnPan(object sender, PanEventArgs e)
+        {
+            NotifyTouchDeltaIfNeeded();
+
+            var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
+            xAxis.Pan(Scale != 0 ? e.DeltaX / Scale : 0);
+            Model?.InvalidatePlot(false);
+        }
+
+        /// <summary>
+        /// Notifies the controller that we are starting a moving gesture
+        /// </summary>
+        private void NotifyTouchDeltaIfNeeded()
         {
             if (!_isPanning)
             {
                 this.ActualController.HandleTouchDelta(this, new OxyTouchEventArgs());
                 _isPanning = true;
             }
+        }
 
-            var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
-            xAxis.Pan(Scale != 0 ? e.DeltaX / Scale : 0);
-            Model?.InvalidatePlot(false);
+        /// <summary>
+        /// Notifies the controller that we are ending a moving gesture
+        /// </summary>
+        private void NotifyTouchCompletedIfNeeded()
+        {
+            if (_isPanning)
+            {
+                this.ActualController.HandleTouchCompleted(this, new OxyTouchEventArgs());
+                _isPanning = false;
+            }
         }
 
         private void HandleGenericMotion(object sender, GenericMotionEventArgs e)
@@ -263,29 +290,29 @@ namespace OxyPlot.Xamarin.Android
             switch (e.Event.Action)
             {
                 case MotionEventActions.Up:
-                    if (_isPanning)
-                    {
-                        this.ActualController.HandleTouchCompleted(this, new OxyTouchEventArgs());
-                        _isPanning = false;
-                    }
-
+                    NotifyTouchCompletedIfNeeded();
                     break;
             }
             _detector.OnTouchEvent(e.Event);
         }
 
-        private void _detector_DoubleTap(object sender, DoubleTapEventArgs e)
+        /// <summary>
+        /// Handles the double tap gesture
+        /// </summary>
+        private void HandleDoubleTap(object sender, DoubleTapEventArgs e)
         {
             var xAxis = Model?.Axes.OfType<CategoryAxis>().FirstOrDefault();
             if (xAxis != null)
             {
                 if (_isZoomed)
                 {
+                    // If the view is already zoomed, reset the zoom at its initial scale
                     xAxis.Zoom(_initialScale);
                     _isZoomed = false;
                 }
                 else
                 {
+                    // If the view is at its initial scale, zoom in (2.5 factor)
                     if (_initialScale == -1)
                     {
                         _initialScale = xAxis.Scale;
@@ -297,7 +324,10 @@ namespace OxyPlot.Xamarin.Android
             }
         }
 
-        private void _detector_SingleTapConfirmed(object sender, SingleTapConfirmedEventArgs e)
+        /// <summary>
+        /// Handles the single tap gesture
+        /// </summary>
+        private void HandleSingleTap(object sender, SingleTapConfirmedEventArgs e)
         {
             this.ActualController.HandleTouchStarted(this, e.Event.ToTouchEventArgs(Scale));
             this.ActualController.HandleTouchCompleted(this, e.Event.ToTouchEventArgs(Scale));
