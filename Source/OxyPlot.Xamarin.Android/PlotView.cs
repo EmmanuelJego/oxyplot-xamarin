@@ -9,14 +9,16 @@
 
 namespace OxyPlot.Xamarin.Android
 {
-    using System;
-
+    using System.Linq;
     using global::Android.Content;
     using global::Android.Graphics;
     using global::Android.Util;
     using global::Android.Views;
 
     using OxyPlot;
+    using OxyPlot.Axes;
+    using OxyPlot.Series;
+    using static global::Android.Views.GestureDetector;
 
     /// <summary>
     /// Represents a view that can show a <see cref="PlotModel" />.
@@ -31,6 +33,11 @@ namespace OxyPlot.Xamarin.Android
         /// The invalidation lock object.
         /// </summary>
         private readonly object invalidateLock = new object();
+        private bool _isZoomed, _isPanning;
+        private double _initialScale = -1;
+
+        private GestureDetector _detector;
+        private PanPinchGestureListener _panPinchListener;
         /// <summary>
         /// The touch points of the previous touch event.
         /// </summary>
@@ -87,6 +94,11 @@ namespace OxyPlot.Xamarin.Android
                     {
                         ((IPlotModel)value).AttachPlotView(this);
                         this.model = value;
+
+                        if (Model.Series.OfType<ColumnSeries>().Any())
+                        {
+                            Initialize();
+                        }
                     }
 
                     this.InvalidatePlot();
@@ -193,6 +205,102 @@ namespace OxyPlot.Xamarin.Android
         public PlotView(Context context, IAttributeSet attrs, int defStyle) :
             base(context, attrs, defStyle)
         {
+        }
+
+        private void Initialize()
+        {
+            _panPinchListener = new PanPinchGestureListener(this.Context.Resources.DisplayMetrics.Density);
+            _detector = new GestureDetector(_panPinchListener);
+
+            _panPinchListener.OnPan += _panPinchListener_OnPan;
+            _panPinchListener.OnPinch += _panPinchListener_OnPinch;
+
+            _detector.SingleTapConfirmed += _detector_SingleTapConfirmed;
+            _detector.DoubleTap += _detector_DoubleTap;
+
+            GenericMotion += HandleGenericMotion;
+            Touch += HandleTouch;
+        }
+
+        private void _panPinchListener_OnPinch(object sender, PinchEventArgs e)
+        {
+            if (!_isPanning)
+            {
+                this.ActualController.HandleTouchDelta(this, new OxyTouchEventArgs());
+                _isPanning = true;
+            }
+
+            var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
+            if (_initialScale == -1)
+            {
+                _initialScale = xAxis.Scale;
+            }
+            _isZoomed = true;
+            xAxis.ZoomAtCenter(e.DeltaScale);
+            Model?.InvalidatePlot(false);
+        }
+
+        private void _panPinchListener_OnPan(object sender, PanEventArgs e)
+        {
+            if (!_isPanning)
+            {
+                this.ActualController.HandleTouchDelta(this, new OxyTouchEventArgs());
+                _isPanning = true;
+            }
+
+            var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
+            xAxis.Pan(Scale != 0 ? e.DeltaX / Scale : 0);
+            Model?.InvalidatePlot(false);
+        }
+
+        private void HandleGenericMotion(object sender, GenericMotionEventArgs e)
+        {
+            _detector.OnTouchEvent(e.Event);
+        }
+
+        private void HandleTouch(object sender, TouchEventArgs e)
+        {
+            switch (e.Event.Action)
+            {
+                case MotionEventActions.Up:
+                    if (_isPanning)
+                    {
+                        this.ActualController.HandleTouchCompleted(this, new OxyTouchEventArgs());
+                        _isPanning = false;
+                    }
+
+                    break;
+            }
+            _detector.OnTouchEvent(e.Event);
+        }
+
+        private void _detector_DoubleTap(object sender, DoubleTapEventArgs e)
+        {
+            var xAxis = Model?.Axes.OfType<CategoryAxis>().FirstOrDefault();
+            if (xAxis != null)
+            {
+                if (_isZoomed)
+                {
+                    xAxis.Zoom(_initialScale);
+                    _isZoomed = false;
+                }
+                else
+                {
+                    if (_initialScale == -1)
+                    {
+                        _initialScale = xAxis.Scale;
+                    }
+                    xAxis.Zoom(_initialScale * 2.5);
+                    _isZoomed = true;
+                }
+                Model?.InvalidatePlot(false);
+            }
+        }
+
+        private void _detector_SingleTapConfirmed(object sender, SingleTapConfirmedEventArgs e)
+        {
+            this.ActualController.HandleTouchStarted(this, e.Event.ToTouchEventArgs(Scale));
+            this.ActualController.HandleTouchCompleted(this, e.Event.ToTouchEventArgs(Scale));
         }
 
         /// <summary>

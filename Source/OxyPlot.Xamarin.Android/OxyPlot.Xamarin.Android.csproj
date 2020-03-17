@@ -61,6 +61,7 @@
     <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PanPinchGestureListener.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="CanvasRenderContext.cs" />
     <Compile Include="ExtensionMethods.cs" />
