@@ -320,5 +320,10 @@ namespace OxyPlot.MonoTouch
                 }
             }
         }
+
+        public void ClearTouches()
+        {
+            activeTouches.Clear();
+        }
     }
 }

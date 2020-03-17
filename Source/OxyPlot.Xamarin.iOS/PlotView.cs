@@ -11,7 +11,10 @@ namespace OxyPlot.Xamarin.iOS
 {
     using Foundation;
     using OxyPlot;
+    using OxyPlot.Axes;
+    using OxyPlot.Series;
     using System;
+    using System.Linq;
     using UIKit;
 
     /// <summary>
@@ -29,9 +32,17 @@ namespace OxyPlot.Xamarin.iOS
         /// </summary>
         private readonly UITapGestureRecognizer tapGesture = new UITapGestureRecognizer();
         /// <summary>
+        /// The double tap gesture recognizer
+        /// </summary>
+        private readonly UITapGestureRecognizer doubleTapGesture = new UITapGestureRecognizer() { NumberOfTapsRequired = 2 };
+
+        /// <summary>
         /// The current plot model.
         /// </summary>
         private PlotModel model;
+
+        private bool _isZoomed = false;
+        private double _initialScale = -1;
 
         /// <summary>
         /// The default plot controller.
@@ -218,30 +229,65 @@ namespace OxyPlot.Xamarin.iOS
             this.BackgroundColor = UIColor.White;
             this.KeepAspectRatioWhenPinching = true;
 
-            this.panZoomGesture.AddTarget(this.HandlePanZoomGesture);
             this.tapGesture.AddTarget(this.HandleTapGesture);
-            //Prevent panZoom and tap gestures from being recognized simultaneously
+            this.panZoomGesture.AddTarget(this.HandlePanZoomGesture);
+            this.doubleTapGesture.AddTarget(this.HandleDoubleTapGesture);
+
+            // Prevent panZoom and (double) tap gestures from being recognized simultaneously
             this.tapGesture.RequireGestureRecognizerToFail(this.panZoomGesture);
+            this.tapGesture.RequireGestureRecognizerToFail(this.doubleTapGesture);
+
+            this.panZoomGesture.ShouldBegin = ((g) =>
+            {
+                var shouldBegin = true;
+                if (g is PanZoomGestureRecognizer gr && gr.TouchEventArgs != null)
+                {
+                    shouldBegin = Math.Abs(gr.TouchEventArgs.DeltaTranslation.X) >= Math.Abs(gr.TouchEventArgs.DeltaTranslation.Y);
+                    if (!shouldBegin)
+                    {
+                        gr.ClearTouches();
+                    }
+                }
+                return shouldBegin && g.View == this;
+            });
 
             // Do not intercept touches on overlapping views
-            this.panZoomGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
             this.tapGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
+            this.panZoomGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
+            this.doubleTapGesture.ShouldReceiveTouch += (recognizer, touch) => touch.View == this;
         }
 
         private void HandlePanZoomGesture()
         {
-            switch (this.panZoomGesture.State)
+            var numberOfTouches = this.panZoomGesture.NumberOfTouches;
+            if (numberOfTouches == 1)
             {
-                case UIGestureRecognizerState.Began:
-                    this.ActualController.HandleTouchStarted(this, this.panZoomGesture.TouchEventArgs);
-                    break;
-                case UIGestureRecognizerState.Changed:
-                    this.ActualController.HandleTouchDelta(this, this.panZoomGesture.TouchEventArgs);
-                    break;
-                case UIGestureRecognizerState.Ended:
-                case UIGestureRecognizerState.Cancelled:
-                    this.ActualController.HandleTouchCompleted(this, this.panZoomGesture.TouchEventArgs);
-                    break;
+                var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
+                switch (this.panZoomGesture.State)
+                {
+                    case UIGestureRecognizerState.Changed:
+                        xAxis.Pan(this.panZoomGesture.TouchEventArgs.DeltaTranslation.X);
+                        Model?.InvalidatePlot(false);
+                        break;
+                }
+            }
+            else if (numberOfTouches == 2)
+            {
+                var xAxis = Model?.Axes.FirstOrDefault(axe => axe is CategoryAxis);
+                switch (this.panZoomGesture.State)
+                {
+                    case UIGestureRecognizerState.Began:
+                        if (_initialScale == -1)
+                        {
+                            _initialScale = xAxis.Scale;
+                        }
+                        break;
+                    case UIGestureRecognizerState.Changed:
+                        _isZoomed = true;
+                        xAxis.ZoomAtCenter(this.panZoomGesture.TouchEventArgs.DeltaScale.X);
+                        Model?.InvalidatePlot(false);
+                        break;
+                }
             }
         }
 
@@ -250,6 +296,29 @@ namespace OxyPlot.Xamarin.iOS
             var location = this.tapGesture.LocationInView(this);
             this.ActualController.HandleTouchStarted(this, location.ToTouchEventArgs());
             this.ActualController.HandleTouchCompleted(this, location.ToTouchEventArgs());
+        }
+
+        private void HandleDoubleTapGesture()
+        {
+            var xAxis = Model?.Axes.OfType<CategoryAxis>().FirstOrDefault();
+            if (xAxis != null)
+            {
+                if (_isZoomed)
+                {
+                    xAxis.Zoom(_initialScale);
+                    _isZoomed = false;
+                }
+                else
+                {
+                    if (_initialScale == -1)
+                    {
+                        _initialScale = xAxis.Scale;
+                    }
+                    xAxis.Zoom(_initialScale * 2.5);
+                    _isZoomed = true;
+                }
+                Model?.InvalidatePlot(false);
+            }
         }
 
         /// <summary>
@@ -365,13 +434,23 @@ namespace OxyPlot.Xamarin.iOS
         {
             if (newsuper == null)
             {
-                this.RemoveGestureRecognizer(this.panZoomGesture);
                 this.RemoveGestureRecognizer(this.tapGesture);
+
+                if (Model != null && Model.Series.OfType<ColumnSeries>().Any())
+                {
+                    this.RemoveGestureRecognizer(this.panZoomGesture);
+                    this.RemoveGestureRecognizer(this.doubleTapGesture);
+                }
             }
             else if (this.Superview == null)
             {
-                this.AddGestureRecognizer(this.panZoomGesture);
                 this.AddGestureRecognizer(this.tapGesture);
+
+                if (Model != null && Model.Series.OfType<ColumnSeries>().Any())
+                {
+                    this.AddGestureRecognizer(this.panZoomGesture);
+                    this.AddGestureRecognizer(this.doubleTapGesture);
+                }
             }
 
             base.WillMoveToSuperview(newsuper);
