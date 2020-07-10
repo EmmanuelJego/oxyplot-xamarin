@@ -95,11 +95,16 @@ namespace OxyPlot.Xamarin.Android
                     {
                         ((IPlotModel)value).AttachPlotView(this);
                         this.model = value;
-
-                        // Initialize gestures only for bar charts
+                                                
                         if (Model.Series.OfType<ColumnSeries>().Any())
                         {
+                            // Initialize gestures only for bar charts
                             InitializeGestures();
+                        }
+                        else if(Model.Series.OfType<PieSeries>().Any())
+                        {
+                            // Initialize gestures only for pie charts
+                            InitializePieGestures();
                         }
                     }
 
@@ -227,6 +232,12 @@ namespace OxyPlot.Xamarin.Android
             Touch += HandleTouch;
         }
 
+        private void InitializePieGestures()
+        {
+            _detector = new GestureDetector(new SimpleOnGestureListener());
+            Touch += HandlePieTouch;
+        }
+
         /// <summary>
         /// Handles the pinch gesture
         /// </summary>
@@ -291,6 +302,18 @@ namespace OxyPlot.Xamarin.Android
             {
                 case MotionEventActions.Up:
                     NotifyTouchCompletedIfNeeded();
+                    break;
+            }
+            _detector.OnTouchEvent(e.Event);
+        }
+
+        private void HandlePieTouch(object sender, TouchEventArgs e)
+        {
+            switch (e.Event.Action)
+            {
+                case MotionEventActions.Up:
+                    this.ActualController.HandleTouchStarted(this, e.Event.ToTouchEventArgs(Scale));
+                    this.ActualController.HandleTouchCompleted(this, e.Event.ToTouchEventArgs(Scale));
                     break;
             }
             _detector.OnTouchEvent(e.Event);
