@@ -1,60 +1,58 @@
 <?xml version="1.0"?>
-<package >
+<package>
   <metadata>
     <id>ScriptAndGo.Oxyplot.Xamarin.Forms</id>
-    <version>1.0.6</version>
+    <version>1.0.7</version>
     <authors>Script and Go</authors>
     <owners>Script and Go</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Bibliothèque pour créer des graphiques en tous genres. Gestion des gestures (pan, pinch, single tap, double tap).</description>
     <releaseNotes>First release.</releaseNotes>
-	<dependencies>
-	  <dependency id="Xamarin.Forms" version="2.3.3.180" />
-	  <dependency id="OxyPlot.Core" version="1.0.0"/>
+    <dependencies>
+      <dependency id="Xamarin.Forms" version="2.3.3.180" />
+      <dependency id="OxyPlot.Core" version="1.0.0" />
     </dependencies>
-	
-	<references>
+
+    <references>
       <group targetFramework="net20">
         <reference file="OxyPlot.Xamarin.Forms.dll" />
       </group>
       <group targetFramework="Xamarin.iOS10">
-		<reference file="OxyPlot.Xamarin.iOS.dll" />
+        <reference file="OxyPlot.Xamarin.iOS.dll" />
         <reference file="OxyPlot.Xamarin.Forms.dll" />
         <reference file="OxyPlot.Xamarin.Forms.Platform.iOS.dll" />
       </group>
       <group targetFramework="MonoAndroid90">
-		<reference file="OxyPlot.Xamarin.Android.dll" />
+        <reference file="OxyPlot.Xamarin.Android.dll" />
         <reference file="OxyPlot.Xamarin.Forms.dll" />
         <reference file="OxyPlot.Xamarin.Forms.Platform.Android.dll" />
       </group>
     </references>
   </metadata>
-  
+
   <files>
     <!-- .NETFramework 2.0 reference assemblies -->
     <file src="bin\Release\netstandard2.0\OxyPlot.Xamarin.Forms.dll" target="lib\net20" />
     <file src="bin\Release\netstandard2.0\OxyPlot.Xamarin.Forms.pdb" target="lib\net20" />
-	
-	
+
     <!-- iOS reference assemblies -->
-	<file src="bin\Release\netstandard2.0\OxyPlot.Xamarin.Forms.dll" target="lib\Xamarin.iOS10" />
+    <file src="bin\Release\netstandard2.0\OxyPlot.Xamarin.Forms.dll" target="lib\Xamarin.iOS10" />
     <file src="bin\Release\netstandard2.0\OxyPlot.Xamarin.Forms.pdb" target="lib\Xamarin.iOS10" />
-	
+
     <file src="..\OxyPlot.Xamarin.iOS\bin\Release\OxyPlot.Xamarin.iOS.dll" target="lib\Xamarin.iOS10" />
     <file src="..\OxyPlot.Xamarin.iOS\bin\Release\OxyPlot.Xamarin.iOS.pdb" target="lib\Xamarin.iOS10" />
-	
+
     <file src="..\OxyPlot.Xamarin.Forms.Platform.iOS\bin\Release\OxyPlot.Xamarin.Forms.Platform.iOS.dll" target="lib\Xamarin.iOS10" />
     <file src="..\OxyPlot.Xamarin.Forms.Platform.iOS\bin\Release\OxyPlot.Xamarin.Forms.Platform.iOS.pdb" target="lib\Xamarin.iOS10" />
 
-
     <!-- Android reference assemblies -->
-	<file src="bin\Release\netstandard2.0\OxyPlot.Xamarin.Forms.dll" target="lib\MonoAndroid90" />
+    <file src="bin\Release\netstandard2.0\OxyPlot.Xamarin.Forms.dll" target="lib\MonoAndroid90" />
     <file src="bin\Release\netstandard2.0\OxyPlot.Xamarin.Forms.pdb" target="lib\MonoAndroid90" />
-	
+
     <file src="..\OxyPlot.Xamarin.Android\bin\Release\OxyPlot.Xamarin.Android.dll" target="lib\MonoAndroid90" />
     <file src="..\OxyPlot.Xamarin.Android\bin\Release\OxyPlot.Xamarin.Android.pdb" target="lib\MonoAndroid90" />
-    
-	<file src="..\OxyPlot.Xamarin.Forms.Platform.Android\bin\Release\OxyPlot.Xamarin.Forms.Platform.Android.dll" target="lib\MonoAndroid90" />
-	<file src="..\OxyPlot.Xamarin.Forms.Platform.Android\bin\Release\OxyPlot.Xamarin.Forms.Platform.Android.pdb" target="lib\MonoAndroid90" />
+
+    <file src="..\OxyPlot.Xamarin.Forms.Platform.Android\bin\Release\OxyPlot.Xamarin.Forms.Platform.Android.dll" target="lib\MonoAndroid90" />
+    <file src="..\OxyPlot.Xamarin.Forms.Platform.Android\bin\Release\OxyPlot.Xamarin.Forms.Platform.Android.pdb" target="lib\MonoAndroid90" />
   </files>
 </package>
